@@ -27,27 +27,19 @@ fi
 
 provider=$1
 
-for configFile in $provider/*.ovpn;
-	do
-		if [[ -L ${configFile} ]]; then
-			continue # Don't edit symbolic links (default.ovpn)
-		fi
-
-		# Absolute reference to ca cert
-		sed -i "s/ca .*\.crt/ca \/etc\/openvpn\/$provider\/ca.crt/g" "$configFile"
-
-		# Absolute reference to Wdc key file
-		sed -i "s/tls-auth Wdc.key 1/tls-auth \/etc\/openvpn\/$provider\/Wdc.key 1/g" "$configFile"
-
-		# Absolute reference to crl
-		sed -i "s/crl-verify.*\.pem/crl-verify \/etc\/openvpn\/$provider\/crl.pem/g" "$configFile"
-
-		# Set user-pass file location
-		sed -i "s/auth-user-pass.*/auth-user-pass \/config\/openvpn-credentials.txt/g" "$configFile"
-
-    # Remove up/down resolv-conf script calls (Mullvad)
-    sed -i "/update-resolv-conf/d" "$configFile"
-
-	done
+## Find all regular (not symlink) provider config files and use sed to modify them
+find $provider -type f -name "*.ovpn" -exec sed -i \
+# expect user/pass to be mounted at /run/secrets/ovpn_client_creds
+-e "s/auth-user-pass.*/auth-user-pass \/run\/secrets\/ovpn_client_creds/" \
+# remove up/down resolv-conf script calls
+-e "/update-resolv-config/d" \
+# Absolute reference to ca cert
+-e "s/ca .*\.crt/ca \/etc\/openvpn\/$provider\/ca.crt/g" \
+# Absolute reference to Wdc key file
+-e "s/tls-auth Wdc.key 1/tls-auth \/etc\/openvpn\/$provider\/Wdc.key 1/g" \
+# Absolute reference to crl
+-e "s/crl-verify.*\.pem/crl-verify \/etc\/openvpn\/$provider\/crl.pem/g" \
+# tell -exec to pass multiple files for each sed invocation (like xargs)
+ \{\} \+
 
 echo "Updated all .ovpn files in folder $provider"

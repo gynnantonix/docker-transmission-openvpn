@@ -1,4 +1,8 @@
 #!/bin/bash
+
+SECRETS_DIR="/run/secrets"
+OPENVPN_CREDENTIALS_FILE="${SECRETS_DIR}/openvpn_client_credentials"
+
 VPN_PROVIDER="${OPENVPN_PROVIDER,,}"
 VPN_PROVIDER_CONFIGS="/etc/openvpn/${VPN_PROVIDER}"
 export VPN_PROVIDER_CONFIGS
@@ -104,19 +108,22 @@ else
   OPENVPN_CONFIG="${VPN_PROVIDER_CONFIGS}/default.ovpn"
 fi
 
-# add OpenVPN user/pass
-if [[ "${OPENVPN_USERNAME}" == "**None**" ]] || [[ "${OPENVPN_PASSWORD}" == "**None**" ]] ; then
-  if [[ ! -f /config/openvpn-credentials.txt ]] ; then
-    echo "OpenVPN credentials not set. Exiting."
-    exit 1
-  fi
-  echo "Found existing OPENVPN credentials..."
+if [[ -r $OPENVPN_CLIENT_CREDENTIALS ]]; then
+  echo -n "OpenVPN credentials found in ${OPENVPN_CLIENT_CREDENTIALS}"
+  [[ -n $OPENVPN_USERNAME ]] || [[ -n $OPENVPN_PASSWORD ]] && echo -n " (ignoring OPENVPN_USER and OPENVPN_PASSWORD)"
+  echo
 else
-  echo "Setting OPENVPN credentials..."
-  mkdir -p /config
-  echo "${OPENVPN_USERNAME}" > /config/openvpn-credentials.txt
-  echo "${OPENVPN_PASSWORD}" >> /config/openvpn-credentials.txt
-  chmod 600 /config/openvpn-credentials.txt
+  echo "Please mount OpenVPN credentials as a secret in ${OPENVPN_CLIENT_CREDENTIALS} -- it's safer" 2>&1
+  [[ ! -n $OPENVPN_USERNAME ]] || [[ ! -n ${OPENVPN_PASSWORD} ]] && echo "OpenVPN credentials not found; exiting." 2>&1 && exit 1
+  echo -n "Found existing OPENVPN credentials... "
+  [[ ! -d $SECRETS_DIR]] && mkdir -p $SECRETS_DIR || echo "Unable to create ${SECRETS_DIR}; exiting." 2>&1 && exit 1
+  touch $OPENVPN_CLIENT_CREDENTIALS || echo "Unable to create ${OPENVPN_CLIENT_CREDENTIALS}; exiting." 2>&1 && exit 1
+  echo -n "Setting OPENVPN credentials... "
+  echo "${OPENVPN_USERNAME}" > $OPENVPN_CLIENT_CREDENTIALS
+  echo "${OPENVPN_PASSWORD}" >> $OPENVPN_CLIENT_CREDENTIALS
+  chmod 600 $OPENVPN_CLIENT_CREDENTIALS
+  echo "done."
+  fi
 fi
 
 # add transmission credentials from env vars
