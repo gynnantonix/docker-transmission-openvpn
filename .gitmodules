@@ -1,0 +1,3 @@
+[submodule "combustion"]
+	path = combustion
+	url = https://github.com/Secretmapper/combustion
