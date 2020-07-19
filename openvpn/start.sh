@@ -109,20 +109,18 @@ else
 fi
 
 if [[ -r $OPENVPN_CREDENTIALS_FILE ]]; then
-  echo -n "OpenVPN credentials found in ${OPENVPN_CREDENTIALS_FILE}"
-  [[ -n $OPENVPN_USERNAME ]] || [[ -n $OPENVPN_PASSWORD ]] && echo -n " (ignoring OPENVPN_USER and OPENVPN_PASSWORD)"
-  echo
+  echo "OpenVPN credentials found in ${OPENVPN_CREDENTIALS_FILE}"
+  [[ -n $OPENVPN_USERNAME ]] || [[ -n $OPENVPN_PASSWORD ]] && echo "(ignoring OPENVPN_USER and OPENVPN_PASSWORD in env)"
 else
   echo "Please mount OpenVPN credentials as a secret in ${OPENVPN_CREDENTIALS_FILE} -- it's safer"
   [[ ! -n $OPENVPN_USERNAME ]] || [[ ! -n ${OPENVPN_PASSWORD} ]] && echo "OpenVPN credentials not found; exiting." 1>&2 && exit 1
-  echo -n "Found existing OPENVPN credentials... "
+  echo "Found existing OPENVPN credentials... "
   [[ ! -d $SECRETS_DIR ]] && mkdir -p $SECRETS_DIR || echo "Unable to create ${SECRETS_DIR}; exiting." 1>&2 && exit 1
   touch $OPENVPN_CREDENTIALS_FILE || echo "Unable to create ${OPENVPN_CREDENTIALS_FILE}; exiting." 1>&2 && exit 1
-  echo -n "Setting OPENVPN credentials... "
+  echo "Setting OPENVPN credentials... "
   echo "${OPENVPN_USERNAME}" > $OPENVPN_CREDENTIALS_FILE
   echo "${OPENVPN_PASSWORD}" >> $OPENVPN_CREDENTIALS_FILE
   chmod 600 $OPENVPN_CREDENTIALS_FILE
-  echo "done."
 fi
 
 # add transmission credentials from env vars
@@ -148,7 +146,8 @@ function ufwAllowPort {
   typeset -n portNum=${1}
   if [[ "${ENABLE_UFW,,}" == "true" ]] && [[ -n "${portNum-}" ]]; then
     echo "allowing ${portNum} through the firewall"
-    ufw allow ${portNum}
+    #ufw allow ${portNum}
+    iptables -A INPUT -p tcp -dport $portNum -j ACCEPT
   fi
 }
 
