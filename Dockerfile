@@ -43,9 +43,7 @@ ADD transmission/ /etc/transmission/
 ADD tinyproxy /opt/tinyproxy/
 ADD scripts /etc/scripts/
 
-ENV OPENVPN_USERNAME=**None** \
-    OPENVPN_PASSWORD=**None** \
-    OPENVPN_PROVIDER=**None** \
+ENV OPENVPN_PROVIDER=**None** \
     GLOBAL_APPLY_PERMISSIONS=true \
     TRANSMISSION_ALT_SPEED_DOWN=50 \
     TRANSMISSION_ALT_SPEED_ENABLED=false \
