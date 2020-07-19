@@ -1,39 +1,49 @@
-version: '2'
+version: "3.8"
 services:
- transmission:
-  image: haugene/transmission-openvpn
-  cap_add:
-    - NET_ADMIN
-  devices:
-    - /dev/net/tun
-  restart: always
-  ports:
-    - "9091:9091"
-    - "8888:8888"
-  dns:
-    - 8.8.8.8
-    - 8.8.4.4
-  volumes:
-    - /etc/localtime:/etc/localtime:ro
-    - /your/storage/path/:/data
-  environment:
-    - OPENVPN_PROVIDER=PIA
-    - OPENVPN_USERNAME=username
-    - OPENVPN_PASSWORD=password
-    - OPENVPN_OPTS=--inactive 3600 --ping 10 --ping-exit 60
-    - LOCAL_NETWORK=192.168.0.0/24
- proxy:
-  image: haugene/transmission-openvpn-proxy
-  links:
-    - transmission
-  ports:
-    - 8080:8080
-  volumes:
-    - /etc/localtime:/etc/localtime:ro
+  transmission:
+    build:
+      context: .
+      dockerfile: Dockerfile.alpine
+    cap_add:
+      - NET_ADMIN
+    restart: always
+    ports:
+      - "9091:9091"
+      - "8888:8888"
+    dns:
+      # DNS.watch resolvers for no censoring, logging, etc.
+      - 84.200.69.80
+      - 84.200.70.40
+    env_file:
+      - transmission.env
+      - network.env
+    secrets:
+      - ovpn_client_creds
+    volumes:
+      - type: bind
+        source: "C:\\torrents"
+        target: /data
+      - type: volume
+        source: transmission_config
+        target: /config
+  # proxy:
+  #   image: haugene/transmission-openvpn-proxy
+  #   links:
+  #     - transmission
+  #   ports:
+  #     - 8080:8080
+  #   volumes:
+  #     - /etc/localtime:/etc/localtime:ro
+  # rss:
+  #   image: haugene/transmission-rss
+  #   links:
+  #     - transmission
+  #   environment:
+  #     - RSS_URL=http://.../xxxxx.rss
 
- rss:
-  image: haugene/transmission-rss
-  links:
-    - transmission
-  environment:
-    - RSS_URL=http://.../xxxxx.rss
+secrets:
+    ovpn_client_creds:
+        file: .secrets/openvpn/client_creds.txt
+
+volumes:
+  transmission_config:
