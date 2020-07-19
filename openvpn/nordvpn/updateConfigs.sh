@@ -117,7 +117,7 @@ update_hostname() {
     sed -i 's/^M$//' *.ovpn
     # Update configs with correct options
     log "Updating configs for docker-transmission-openvpn"
-    sed -i 's=auth-user-pass=auth-user-pass /config/openvpn-credentials.txt=g' *.ovpn
+    sed -i 's=auth-user-pass=auth-user-pass /run/secrets/ovpn_client_creds=g' *.ovpn
     sed -i 's/ping 15/inactive 3600\
     ping 10/g' *.ovpn
     sed -i 's/ping-restart 0/ping-exit 60/g' *.ovpn

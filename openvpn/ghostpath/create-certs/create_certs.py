@@ -6,7 +6,7 @@ It requires pandas and python 3.6 or greater.
 import pandas as pd
 
 TAIL = '''
-auth-user-pass /config/openvpn-credentials.txt
+auth-user-pass /run/secrets/ovpn_client_creds
 client
 redirect-gateway
 remote-cert-tls server
