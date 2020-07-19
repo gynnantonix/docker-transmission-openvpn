@@ -113,11 +113,11 @@ if [[ -r $OPENVPN_CLIENT_CREDENTIALS ]]; then
   [[ -n $OPENVPN_USERNAME ]] || [[ -n $OPENVPN_PASSWORD ]] && echo -n " (ignoring OPENVPN_USER and OPENVPN_PASSWORD)"
   echo
 else
-  echo "Please mount OpenVPN credentials as a secret in ${OPENVPN_CLIENT_CREDENTIALS} -- it's safer" 2>&1
-  [[ ! -n $OPENVPN_USERNAME ]] || [[ ! -n ${OPENVPN_PASSWORD} ]] && echo "OpenVPN credentials not found; exiting." 2>&1 && exit 1
+  echo "Please mount OpenVPN credentials as a secret in ${OPENVPN_CLIENT_CREDENTIALS} -- it's safer"
+  [[ ! -n $OPENVPN_USERNAME ]] || [[ ! -n ${OPENVPN_PASSWORD} ]] && echo "OpenVPN credentials not found; exiting." 1>&2 && exit 1
   echo -n "Found existing OPENVPN credentials... "
-  [[ ! -d $SECRETS_DIR]] && mkdir -p $SECRETS_DIR || echo "Unable to create ${SECRETS_DIR}; exiting." 2>&1 && exit 1
-  touch $OPENVPN_CLIENT_CREDENTIALS || echo "Unable to create ${OPENVPN_CLIENT_CREDENTIALS}; exiting." 2>&1 && exit 1
+  [[ ! -d $SECRETS_DIR]] && mkdir -p $SECRETS_DIR || echo "Unable to create ${SECRETS_DIR}; exiting." 1>&2 && exit 1
+  touch $OPENVPN_CLIENT_CREDENTIALS || echo "Unable to create ${OPENVPN_CLIENT_CREDENTIALS}; exiting." 1>&2 && exit 1
   echo -n "Setting OPENVPN credentials... "
   echo "${OPENVPN_USERNAME}" > $OPENVPN_CLIENT_CREDENTIALS
   echo "${OPENVPN_PASSWORD}" >> $OPENVPN_CLIENT_CREDENTIALS
