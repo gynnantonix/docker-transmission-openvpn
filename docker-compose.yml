@@ -9,7 +9,8 @@ services:
     restart: always
     ports:
       - "9091:9091"
-      - "52801:52801"
+    devices: 
+      - "/dev/net/tun:/dev/net/tun"
     dns:
       # DNS.watch resolvers for no censoring, logging, etc.
       - 84.200.69.80
@@ -28,23 +29,41 @@ services:
         source: ./configs
         target: /configs
         read_only: true
+      - type: bind
+        source: /mnt/f/Music
+        target: /media/music
+        read_only: true
+      - type: bind
+        source: "/mnt/f/Spoken Word"
+        target: /media/spoken_word
+        read_only: true
+      - type: bind
+        source: /mnt/d/Media/Movies
+        target: /media/movies
+        read_only: true
+      - type: bind
+        source: "/mnt/d/Media/TV Shows"
+        target: /media/tv
+        read_only: true
   
-  # combustion:
-  #   build:
-  #     context: ./combustion
-  #   ports:
-  #     - 80:8081
-  #   links:
-  #     - transmission
+  combustion:
+    build:
+      context: ./combustion
+    ports:
+      - 80:8081
+    links:
+      - transmission
 
-  # proxy:
-  #   image: haugene/transmission-openvpn-proxy
-  #   links:
-  #     - transmission
-  #   ports:
-  #     - 8080:8080
-  #   volumes:
-  #     - /etc/localtime:/etc/localtime:ro
+  proxy:
+    build:
+      context: ./proxy
+    links:
+      - transmission
+      - combustion
+    ports:
+      - 8080:8080
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
 
   # rss:
   #   image: nning2/transmission-rss
