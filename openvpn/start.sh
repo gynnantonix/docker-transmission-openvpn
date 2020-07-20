@@ -123,14 +123,12 @@ else
   chmod 600 $OPENVPN_CREDENTIALS_FILE
 fi
 
-# add transmission credentials from env vars
-echo "${TRANSMISSION_RPC_USERNAME}" > /config/transmission-credentials.txt
-echo "${TRANSMISSION_RPC_PASSWORD}" >> /config/transmission-credentials.txt
+# # add transmission credentials from env vars
+# echo "${TRANSMISSION_RPC_USERNAME}" > /config/transmission-credentials.txt
+# echo "${TRANSMISSION_RPC_PASSWORD}" >> /config/transmission-credentials.txt
 
-# Persist transmission settings for use by transmission-daemon
-dockerize -template /etc/transmission/environment-variables.tmpl:/etc/transmission/environment-variables.sh
-
-TRANSMISSION_CONTROL_OPTS="--script-security 2 --up-delay --up /etc/openvpn/tunnelUp.sh --down /etc/openvpn/tunnelDown.sh"
+# # Persist transmission settings for use by transmission-daemon
+# dockerize -template /etc/transmission/environment-variables.tmpl:/etc/transmission/environment-variables.sh
 
 ## If we use UFW or the LOCAL_NETWORK we need to grab network config info
 if [[ "${ENABLE_UFW,,}" == "true" ]] || [[ -n "${LOCAL_NETWORK-}" ]]; then
@@ -141,83 +139,91 @@ if [[ "${ENABLE_UFW,,}" == "true" ]] || [[ -n "${LOCAL_NETWORK-}" ]]; then
   fi
 fi
 
-## Open port to any address
-function ufwAllowPort {
-  typeset -n portNum=${1}
-  if [[ "${ENABLE_UFW,,}" == "true" ]] && [[ -n "${portNum-}" ]]; then
-    echo "allowing ${portNum} through the firewall"
-    #ufw allow ${portNum}
-    iptables -A INPUT -p tcp -dport $portNum -j ACCEPT
-  fi
-}
+# ## Open port to any address
+# function ufwAllowPort {
+#   typeset -n portNum=${1}
+#   if [[ "${ENABLE_UFW,,}" == "true" ]] && [[ -n "${portNum-}" ]]; then
+#     echo "allowing ${portNum} through the firewall"
+#     #ufw allow ${portNum}
+#     iptables -A INPUT -p tcp -dport $portNum -j ACCEPT
+#   fi
+# }
 
-## Open port to specific address.
-function ufwAllowPortLong {
-  typeset -n portNum=${1} sourceAddress=${2}
+# ## Open port to specific address.
+# function ufwAllowPortLong {
+#   typeset -n portNum=${1} sourceAddress=${2}
 
-  if [[ "${ENABLE_UFW,,}" == "true" ]] && [[ -n "${portNum-}" ]] && [[ -n "${sourceAddress-}" ]]; then
-    echo "allowing ${sourceAddress} through the firewall to port ${portNum}"
-    ufw allow from ${sourceAddress} to any port ${portNum}
-  fi
-}
+#   if [[ "${ENABLE_UFW,,}" == "true" ]] && [[ -n "${portNum-}" ]] && [[ -n "${sourceAddress-}" ]]; then
+#     echo "allowing ${sourceAddress} through the firewall to port ${portNum}"
+#     ufw allow from ${sourceAddress} to any port ${portNum}
+#   fi
+# }
 
-if [[ "${ENABLE_UFW,,}" == "true" ]]; then
-  if [[ "${UFW_DISABLE_IPTABLES_REJECT,,}" == "true" ]]; then
-    # A horrible hack to ufw to prevent it detecting the ability to limit and REJECT traffic
-    sed -i 's/return caps/return []/g' /usr/lib/python3/dist-packages/ufw/util.py
-    # force a rewrite on the enable below
-    echo "Disable and blank firewall"
-    ufw disable
-    echo "" > /etc/ufw/user.rules
-  fi
-  # Enable firewall
-  echo "enabling firewall"
-  sed -i -e s/IPV6=yes/IPV6=no/ /etc/default/ufw
-  ufw enable
+# if [[ "${ENABLE_UFW,,}" == "true" ]]; then
+#   if [[ "${UFW_DISABLE_IPTABLES_REJECT,,}" == "true" ]]; then
+#     # A horrible hack to ufw to prevent it detecting the ability to limit and REJECT traffic
+#     sed -i 's/return caps/return []/g' /usr/lib/python3/dist-packages/ufw/util.py
+#     # force a rewrite on the enable below
+#     echo "Disable and blank firewall"
+#     ufw disable
+#     echo "" > /etc/ufw/user.rules
+#   fi
+#   # Enable firewall
+#   echo "enabling firewall"
+#   sed -i -e s/IPV6=yes/IPV6=no/ /etc/default/ufw
+#   ufw enable
 
-  if [[ "${TRANSMISSION_PEER_PORT_RANDOM_ON_START,,}" == "true" ]]; then
-    PEER_PORT="${TRANSMISSION_PEER_PORT_RANDOM_LOW}:${TRANSMISSION_PEER_PORT_RANDOM_HIGH}"
-  else
-    PEER_PORT="${TRANSMISSION_PEER_PORT}"
-  fi
+#   if [[ "${TRANSMISSION_PEER_PORT_RANDOM_ON_START,,}" == "true" ]]; then
+#     PEER_PORT="${TRANSMISSION_PEER_PORT_RANDOM_LOW}:${TRANSMISSION_PEER_PORT_RANDOM_HIGH}"
+#   else
+#     PEER_PORT="${TRANSMISSION_PEER_PORT}"
+#   fi
 
-  ufwAllowPort PEER_PORT
+#   ufwAllowPort PEER_PORT
 
-  if [[ "${WEBPROXY_ENABLED,,}" == "true" ]]; then
-    ufwAllowPort WEBPROXY_PORT
-  fi
-  if [[ "${UFW_ALLOW_GW_NET,,}" == "true" ]]; then
-    ufwAllowPortLong TRANSMISSION_RPC_PORT GW_CIDR
-  else
-    ufwAllowPortLong TRANSMISSION_RPC_PORT GW
-  fi
+#   if [[ "${WEBPROXY_ENABLED,,}" == "true" ]]; then
+#     ufwAllowPort WEBPROXY_PORT
+#   fi
+#   if [[ "${UFW_ALLOW_GW_NET,,}" == "true" ]]; then
+#     ufwAllowPortLong TRANSMISSION_RPC_PORT GW_CIDR
+#   else
+#     ufwAllowPortLong TRANSMISSION_RPC_PORT GW
+#   fi
 
-  if [[ -n "${UFW_EXTRA_PORTS-}"  ]]; then
-    for port in ${UFW_EXTRA_PORTS//,/ }; do
-      if [[ "${UFW_ALLOW_GW_NET,,}" == "true" ]]; then
-        ufwAllowPortLong port GW_CIDR
-      else
-        ufwAllowPortLong port GW
-      fi
-    done
-  fi
-fi
+#   if [[ -n "${UFW_EXTRA_PORTS-}"  ]]; then
+#     for port in ${UFW_EXTRA_PORTS//,/ }; do
+#       if [[ "${UFW_ALLOW_GW_NET,,}" == "true" ]]; then
+#         ufwAllowPortLong port GW_CIDR
+#       else
+#         ufwAllowPortLong port GW
+#       fi
+#     done
+#   fi
+# fi
 
 if [[ -n "${LOCAL_NETWORK-}" ]]; then
   if [[ -n "${GW-}" ]] && [[ -n "${INT-}" ]]; then
     for localNet in ${LOCAL_NETWORK//,/ }; do
       echo "adding route to local network ${localNet} via ${GW} dev ${INT}"
       /sbin/ip route add "${localNet}" via "${GW}" dev "${INT}"
-      if [[ "${ENABLE_UFW,,}" == "true" ]]; then
-        ufwAllowPortLong TRANSMISSION_RPC_PORT localNet
-        if [[ -n "${UFW_EXTRA_PORTS-}" ]]; then
-          for port in ${UFW_EXTRA_PORTS//,/ }; do
-            ufwAllowPortLong port localNet
-          done
-        fi
-      fi
+      # if [[ "${ENABLE_UFW,,}" == "true" ]]; then
+      #   ufwAllowPortLong TRANSMISSION_RPC_PORT localNet
+      #   if [[ -n "${UFW_EXTRA_PORTS-}" ]]; then
+      #     for port in ${UFW_EXTRA_PORTS//,/ }; do
+      #       ufwAllowPortLong port localNet
+      #     done
+      #   fi
+      # fi
     done
   fi
 fi
 
-exec openvpn ${TRANSMISSION_CONTROL_OPTS} ${OPENVPN_OPTS} --config "${OPENVPN_CONFIG}"
+TRANSMISSION_CONTROL_OPTS="--script-security 2 --up-delay --up /etc/openvpn/tunnelUp.sh --down /etc/openvpn/tunnelDown.sh"
+
+touch /var/log/transmission.log /var/log/openvpn.log
+chmod a+rw /var/log/transmission.log /var/log/openvpn.log
+
+echo "Calling openvpn with ${TRANSMISSION_CONTROL_OPTS} ${OPENVPN_OPTS} --config \"${OPENVPN_CONFIG}\""
+openvpn ${TRANSMISSION_CONTROL_OPTS} ${OPENVPN_OPTS} --daemon --log /var/log/openvpn.log --echo --config "${OPENVPN_CONFIG}"
+
+exec tail -f /var/log/openvpn.log /var/log/transmission.log

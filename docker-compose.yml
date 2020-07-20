@@ -9,23 +9,34 @@ services:
     restart: always
     ports:
       - "9091:9091"
-      - "8888:8888"
+      - "52801:52801"
     dns:
       # DNS.watch resolvers for no censoring, logging, etc.
       - 84.200.69.80
       - 84.200.70.40
     env_file:
-      - transmission.env
       - network.env
     secrets:
-      - ovpn_client_creds
+      - source: ovpn_client_creds
+        mode: 0400
     volumes:
       - type: bind
-        source: "C:\\torrents"
+        source: ~/torrents
         target: /data
-      - type: volume
-        source: transmission_config
-        target: /config
+        consistency: delegated
+      - type: bind
+        source: ./configs
+        target: /configs
+        read_only: true
+  
+  # combustion:
+  #   build:
+  #     context: ./combustion
+  #   ports:
+  #     - 80:8081
+  #   links:
+  #     - transmission
+
   # proxy:
   #   image: haugene/transmission-openvpn-proxy
   #   links:
@@ -34,16 +45,16 @@ services:
   #     - 8080:8080
   #   volumes:
   #     - /etc/localtime:/etc/localtime:ro
+
   # rss:
-  #   image: haugene/transmission-rss
+  #   image: nning2/transmission-rss
   #   links:
   #     - transmission
-  #   environment:
-  #     - RSS_URL=http://.../xxxxx.rss
+  #   volumes:
+  #     - type: bind
+  #       source: ./configs/transmission-rss/config.yml
+  #       target: /etc/transmission-rss.conf
 
 secrets:
     ovpn_client_creds:
         file: .secrets/openvpn/client_creds.txt
-
-volumes:
-  transmission_config:
