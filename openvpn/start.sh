@@ -218,12 +218,22 @@ if [[ -n "${LOCAL_NETWORK-}" ]]; then
   fi
 fi
 
-TRANSMISSION_CONTROL_OPTS="--script-security 2 --up-delay --up /etc/openvpn/tunnelUp.sh --down /etc/openvpn/tunnelDown.sh"
+OPENVPN_OPTS="${OPENVPN_OPTS} \
+ --script-security 2 \
+ --up-delay \
+ --up /etc/openvpn/tunnelUp.sh \
+ --down /etc/openvpn/tunnelDown.sh \
+ --daemon \
+ --writepid /var/run/openvpn.pid \
+ --log /var/log/openvpn.log \
+ --suppress-timestamps \
+ --echo \
+ --config ${OPENVPN_CONFIG}"
 
 touch /var/log/transmission.log /var/log/openvpn.log
 chmod a+rw /var/log/transmission.log /var/log/openvpn.log
 
-echo "Calling openvpn with ${TRANSMISSION_CONTROL_OPTS} ${OPENVPN_OPTS} --config \"${OPENVPN_CONFIG}\""
-openvpn ${TRANSMISSION_CONTROL_OPTS} ${OPENVPN_OPTS} --daemon --log /var/log/openvpn.log --echo --config "${OPENVPN_CONFIG}"
+echo "Calling openvpn with ${OPENVPN_OPTS}"
+openvpn ${OPENVPN_OPTS}
 
 exec tail -f /var/log/openvpn.log /var/log/transmission.log
