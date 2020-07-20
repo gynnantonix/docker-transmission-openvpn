@@ -8,6 +8,7 @@ then
    echo "/scripts/transmission-pre-stop.sh returned $?"
 fi
 
+echo "Signalling transmission-daemon stop" >>/var/log/transmission.log
 kill $(pidof transmission-daemon)
 
 # If transmission-post-stop.sh exists, run it
