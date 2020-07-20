@@ -110,7 +110,7 @@ download_hostname() {
 
     log "Downloading config: ${ovpnName}"
     log "Downloading from: ${nordvpn_cdn}"
-    curl ${nordvpn_cdn} -o "${ovpnName}"
+    curl --silent --show-error ${nordvpn_cdn} -o "${ovpnName}" || exit 1
 }
 update_hostname() {
     log "Checking line endings"
