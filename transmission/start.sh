@@ -2,27 +2,49 @@
 
 LOGFILE=/var/log/transmission.log
 TRANSMISSION_HOME=/data/transmission
+TRANSMISSION_CONFIG_FILE=$TRANSMISSION_HOME/settings.json
 
-# This script will be called with tun/tap device name as parameter 1, and local IP as parameter 4
-# See https://openvpn.net/index.php/open-source/documentation/manuals/65-openvpn-20x-manpage.html (--up cmd)
-echo "Up script executed with $*"
-if [[ "$4" = "" ]]; then
-   echo "ERROR, unable to obtain tunnel address"
-   echo "killing $PPID"
-   kill -9 $PPID
-   exit 1
+# sets the value of a key in the Transmission settings file
+function setConfigKey {
+  key=$1
+  value=$2
+  mv $TRANSMISSION_CONFIG_FILE $TRANSMISSION_CONFIG_FILE.old
+  cat $TRANSMISSION_CONFIG_FILE.old | jq ".[\"${key}\"] = \"${value}\"" > $TRANSMISSION_CONFIG_FILE
+}
+
+# see https://openvpn.net/community-resources/reference-manual-for-openvpn-2-4/ for calling sequence of --up script
+tun_dev=$1
+tun_mtu=$2
+link_mtu=$3
+ifconfig_local_ip=$4
+ifconfig_remote_ip=$5
+call_reason=$6
+
+if [[ -z $call_reason ]] || [[ $call_reason != "init" ]]; then
+  echo "transmission/start.sh not called for init. Nothing to do; exiting."
+  exit 0
 fi
+
+# if transmission's home dir doesn't exist, set it up with the contents of /configs/transmission
+home_dir_status=" (exists)"
+if [[ ! -d $TRANSMISSION_HOME ]]; then
+  echo "Creating ${TRANSMISSION_HOME}"
+  mkdir -p $TRANSMISSION_HOME || exit 1
+  home_dir_status=" (new)"
+  cp --verbose --recursive /configs/transmission/* $TRANSMISSION_HOME
+else
+  if [[ ! -r $TRANSMISSION_CONFIG_FILE ]]; then
+    cp --verbose /configs/transmission/settings.json $TRANSMISSION_CONFIG_FILE || exit 1
+  fi
 
 # If transmission-pre-start.sh exists, run it
 if [[ -x /scripts/transmission-pre-start.sh ]]
 then
-   echo "Executing /scripts/transmission-pre-start.sh"
-   /scripts/transmission-pre-start.sh "$@"
-   echo "/scripts/transmission-pre-start.sh returned $?"
+   echo "Executing Transmission pre-start script..."
+   /scripts/transmission-pre-start.sh "$@" || exit 1
 fi
 
-echo "Updating TRANSMISSION_BIND_ADDRESS_IPV4 to the ip of $1 : $4"
-export TRANSMISSION_BIND_ADDRESS_IPV4=$4
+setConfigKey "bind-address-ipv4" $ifconfig_local_ip
 
 # if [[ "combustion" = "$TRANSMISSION_WEB_UI" ]]; then
 #   echo "Using Combustion UI, overriding TRANSMISSION_WEB_HOME"
@@ -39,31 +61,13 @@ export TRANSMISSION_BIND_ADDRESS_IPV4=$4
 #   export TRANSMISSION_WEB_HOME=/opt/transmission-ui/transmission-web-control
 # fi
 
-# echo "Generating transmission settings.json from env variables"
-# # Ensure TRANSMISSION_HOME is created
-# mkdir -p ${TRANSMISSION_HOME}
-# dockerize -template /etc/transmission/settings.tmpl:${TRANSMISSION_HOME}/settings.json
-
-# echo "sed'ing True to true"
-# sed -i 's/True/true/g' ${TRANSMISSION_HOME}/settings.json
-
-# if transmission's home dir doesn't exist, set it up with the contents of /configs/transmission
-if [[ ! -d $TRANSMISSION_HOME ]]; then
-  echo "Initializing transmission's home directory at ${TRANSMISSION_HOME}"
-  if ( ! `mkdir -p $TRANSMISSION_HOME` ); then
-    kill -9 $PPID
-    exit 1
-  fi
-  cp --verbose --recursive /configs/transmission/* $TRANSMISSION_HOME
-fi
-
 if [[ ! -r "/dev/random" ]]; then
   # Avoid "Fatal: no entropy gathering module detected" error
   echo "INFO: /dev/random not found - symlink to /dev/urandom"
   ln -s /dev/urandom /dev/random
 fi
 
-. /etc/transmission/userSetup.sh
+. /etc/transmission/userSetup.sh || exit 1
 
 if [[ "true" = "$DROP_DEFAULT_ROUTE" ]]; then
   echo "DROPPING DEFAULT ROUTE"
@@ -73,33 +77,41 @@ fi
 if [[ -n $DOCKER_LOG ]] && [[ "${DOCKER_LOG^^}" == "FALSE" ]]; then
   LOGFILE=${TRANSMISSION_HOME}/transmission.log
 fi
-echo "Transmission logging to ${LOGFILE}"
 
-echo "STARTING TRANSMISSION"
-/usr/bin/transmission-daemon -g ${TRANSMISSION_HOME} --logfile ${LOGFILE} --log-info &
-
+pf_script="(no port forwarding for ${OPENVPN_PROVIDER})"
+fi
 if [[ "${OPENVPN_PROVIDER^^}" = "PIA" ]]
 then
-    echo "CONFIGURING PORT FORWARDING"
-    exec /etc/transmission/updatePort.sh &
+    pf_script="/etc/transmission/updatePort.sh"
 elif [[ "${OPENVPN_PROVIDER^^}" = "PERFECTPRIVACY" ]]
 then
-    echo "CONFIGURING PORT FORWARDING"
-    exec /etc/transmission/updatePPPort.sh ${TRANSMISSION_BIND_ADDRESS_IPV4} &
+    pfscript="/etc/transmission/updatePPPort.sh" &
 elif [[ "${OPENVPN_PROVIDER^^}" = "PRIVATEVPN" ]]
 then
-    echo "CONFIGURING PORT FORWARDING"
-    exec /etc/transmission/updatePrivateVPNPort.sh &
-else
-    echo "NO PORT UPDATER FOR THIS PROVIDER"
+    pf_script="/etc/transmission/updatePrivateVPNPort.sh"
+fi
+
+echo <<- ENDSTART
+Starting Transmission...
+  User name: ${RUN_AS}
+  User uid:  $(id -u ${RUN_AS})
+  User gid:  $(id -g ${RUN_AS})
+  Home dir:  ${TRANSMISSION_HOME}${home_dir_status}
+  Logfile:   ${LOGFILE}
+  IPv4 Bind Address:   ${ifconfig_local_ip}
+  IPv4 Remote Address: ${ifconfig_remote_ip}
+  ${pf_script}
+ENDSTART
+
+/usr/bin/transmission-daemon -g ${TRANSMISSION_HOME} --logfile ${LOGFILE} --log-debug &
+
+if [[ -x pf_script ]]; then
+  `${pf_script} ${ifconfig_local_ip}` || exit 1
 fi
 
 # If transmission-post-start.sh exists, run it
 if [[ -x /scripts/transmission-post-start.sh ]]
 then
-   echo "Executing /scripts/transmission-post-start.sh"
-   /scripts/transmission-post-start.sh "$@"
-   echo "/scripts/transmission-post-start.sh returned $?"
+   echo "Executing Transmission post-start script..."
+   /scripts/transmission-post-start.sh "$@" || exit 1
 fi
-
-echo "Transmission startup script complete."
